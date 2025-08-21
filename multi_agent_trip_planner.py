@@ -112,29 +112,61 @@ def generate_full_itinerary(prefs):
     itinerary_planner = Agent(
         role="Expert Travel Planner",
         goal=f"Craft a detailed, day-by-day itinerary for a {prefs['days']}-day trip to {prefs['destination']}",
-        backstory="An expert in crafting luxurious and culturally rich travel experiences.",
-        llm=llm, verbose=True
+        backstory="An expert in crafting luxurious and culturally rich travel experiences who follows instructions precisely.",
+        llm=llm, verbose=True, allow_delegation=False
     )
     itinerary_task = Task(
       description=f"""
-        Create a detailed, day-by-day itinerary for a {prefs['days']}-day luxury trip to {prefs['destination']} for a client departing from {prefs['departure']}.
-        The client has a {prefs['budget']} budget.
-        Incorporate the following real-time information:
+        Your single task is to generate a complete travel itinerary based on the details provided.
+        You must follow the specified format exactly. Do not add any conversational text, introductions, or explanations.
+        Your entire response should be only the formatted markdown itinerary.
+
+        **Trip Details:**
+        - **Destination:** {prefs['destination']}
+        - **Duration:** {prefs['days']} days
+        - **Departure City:** {prefs['departure']}
+        - **Budget:** {prefs['budget']}
+
+        **Available Data (for context):**
         - **Flight Options:** {flights_txt}
         - **Hotel Options:** {hotels_txt}
-        **Instructions:**
-        1. Start with a brief, engaging summary.
-        2. Recommend one flight and one hotel from the options, explaining why.
-        3. Create a detailed plan for each day (morning, afternoon, evening).
-        4. Ensure activities are logical and fit a luxury style.
-        5. The final output must be a complete, well-formatted markdown document.
+
+        **Required Output Format:**
+
+        ### Trip Summary
+        A brief, one-paragraph summary of the exciting trip ahead.
+
+        ### Recommendations
+        * **Flight:** [Recommend one flight from the options and provide a one-sentence reason for your choice.]
+        * **Hotel:** [Recommend one hotel from the options and provide a one-sentence reason for your choice.]
+
+        ### Daily Itinerary
+        **Day 1:**
+        * **Morning:** [Detailed activity, e.g., 'Visit the Louvre Museum (pre-booked tickets recommended).']
+        * **Afternoon:** [Detailed activity, e.g., 'Enjoy a picnic lunch at Champ de Mars with a view of the Eiffel Tower.']
+        * **Evening:** [Detailed activity, e.g., 'Take a sunset dinner cruise on the Seine River.']
+
+        **Day 2:**
+        * **Morning:** [Detailed activity]
+        * **Afternoon:** [Detailed activity]
+        * **Evening:** [Detailed activity]
+
+        ... continue for all {prefs['days']} days ...
+
+        **IMPORTANT:** Your response must start with '### Trip Summary' and end with the last activity of the final day.
       """,
-      expected_output="A complete, well-formatted markdown itinerary.",
+      expected_output="A complete, well-formatted markdown itinerary that strictly follows the specified format.",
       agent=itinerary_planner
     )
     crew = Crew(agents=[itinerary_planner], tasks=[itinerary_task])
     result = crew.kickoff()
-    return flights_txt, hotels_txt, result
+    
+    # Add a check to ensure the output is valid
+    if result and "Trip Summary" in result and "Daily Itinerary" in result:
+        return flights_txt, hotels_txt, result
+    else:
+        # Fallback message if the agent fails
+        return flights_txt, hotels_txt, "❌ The AI agent failed to generate a valid itinerary. This can sometimes happen due to high traffic. Please try again."
 
 # --- Main App Logic ---
 if not llm or not serpapi_api_key:

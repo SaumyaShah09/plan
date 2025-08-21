@@ -109,50 +109,53 @@ def generate_full_itinerary(prefs):
     flights_txt = get_flight_info(prefs['departure'], prefs['destination'], prefs['days'])
     hotels_txt = get_hotel_info(prefs['destination'], prefs['budget'], prefs['days'])
     
-    itinerary_planner = Agent(
-        role="Expert Travel Planner",
-        goal=f"Craft a detailed itinerary for a {prefs['days']}-day trip to {prefs['destination']}",
-        backstory="An expert in crafting luxurious and culturally rich travel experiences.",
-        llm=llm, verbose=True, allow_delegation=False
-    )
-    
-    itinerary_task = Task(
-      description=f"""
-        Generate a complete travel itinerary based on the details provided.
-        Follow the format exactly. Do not add conversational text or explanations.
+    # *** MAJOR CHANGE: Replaced CrewAI with a direct, more reliable LLM call ***
+    prompt = f"""
+        You are an expert travel planner. Your single task is to generate a complete travel itinerary based on the details provided.
+        You must follow the specified format exactly. Do not add any conversational text, introductions, or explanations.
+        Your entire response should be only the formatted markdown itinerary.
+
         **Trip Details:**
-        - Destination: {prefs['destination']}
-        - Duration: {prefs['days']} days
-        - Departure City: {prefs['departure']}
-        - Budget: {prefs['budget']}
-        **Context Data:**
-        - Flight Options: {flights_txt}
-        - Hotel Options: {hotels_txt}
+        - **Destination:** {prefs['destination']}
+        - **Duration:** {prefs['days']} days
+        - **Departure City:** {prefs['departure']}
+        - **Budget:** {prefs['budget']}
+
+        **Available Data (for context):**
+        - **Flight Options:** {flights_txt}
+        - **Hotel Options:** {hotels_txt}
+
         **Required Output Format:**
+
         ### Trip Summary
-        A brief, one-paragraph summary of the trip.
+        A brief, one-paragraph summary of the exciting trip ahead.
+
         ### Recommendations
-        * **Flight:** [Recommend one flight and give a one-sentence reason.]
-        * **Hotel:** [Recommend one hotel and give a one-sentence reason.]
+        * **Flight:** [Recommend one flight from the options and provide a one-sentence reason for your choice.]
+        * **Hotel:** [Recommend one hotel from the options and provide a one-sentence reason for your choice.]
+
         ### Daily Itinerary
         **Day 1:**
-        * **Morning:** [Detailed activity]
-        * **Afternoon:** [Detailed activity]
-        * **Evening:** [Detailed activity]
-        ... continue for all {prefs['days']} days ...
-        **IMPORTANT:** Your response must start with '### Trip Summary'.
-      """,
-      expected_output="A complete, well-formatted markdown itinerary.",
-      agent=itinerary_planner
-    )
+        * **Morning:** [Detailed activity, e.g., 'Visit the Louvre Museum (pre-booked tickets recommended).']
+        * **Afternoon:** [Detailed activity, e.g., 'Enjoy a picnic lunch at Champ de Mars with a view of the Eiffel Tower.']
+        * **Evening:** [Detailed activity, e.g., 'Take a sunset dinner cruise on the Seine River.']
 
-    crew = Crew(agents=[itinerary_planner], tasks=[itinerary_task])
-    result = crew.kickoff()
+        ... continue for all {prefs['days']} days ...
+
+        **IMPORTANT:** Your response must start with '### Trip Summary' and end with the last activity of the final day.
+      """
     
-    if result and "Trip Summary" in result and "Daily Itinerary" in result:
-        return flights_txt, hotels_txt, result
-    else:
-        return flights_txt, hotels_txt, "❌ The AI agent failed to generate a valid itinerary. Please try again."
+    try:
+        response = llm.invoke(prompt)
+        result = response.content if hasattr(response, 'content') else str(response)
+        
+        if result and "Trip Summary" in result and "Daily Itinerary" in result:
+            return flights_txt, hotels_txt, result
+        else:
+            # This fallback is now much less likely to be needed
+            return flights_txt, hotels_txt, "❌ The AI agent failed to generate a valid itinerary. The response was not in the correct format. Please try again."
+    except Exception as e:
+        return flights_txt, hotels_txt, f"❌ An error occurred while communicating with the AI model: {e}"
 
 # --- Main App Logic ---
 if not llm or not serpapi_api_key:
@@ -168,7 +171,6 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Your response...")
 
 if st.session_state.chat_stage == "collecting":
-    # Ask the next question
     if not st.session_state.messages or st.session_state.messages[-1]["role"] == "user":
         if "destination" not in st.session_state.user_data:
             st.session_state.messages.append({"role": "assistant", "content": "Where would you like to travel?"})

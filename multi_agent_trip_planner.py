@@ -1,7 +1,7 @@
 # Add these three lines to override the default sqlite3 library
 __import__('pysqlite3')
 import sys
-sys.modules['sqlite3'] = sys.modules.pop('p_ysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 from crewai import Agent, Task, Crew
 from crewai.llm import LLM
@@ -224,3 +224,4 @@ if st.session_state.chat_stage == "planning":
         st.session_state.messages.append({"role": "assistant", "content": final_response})
         st.session_state.chat_stage = "done"
         st.rerun()
+

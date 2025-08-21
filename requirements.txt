@@ -1,0 +1,29 @@
+# Core app libraries
+streamlit
+python-dotenv
+requests
+
+# Hugging Face LLM client via CrewAI (uses Groq)
+huggingface_hub
+
+# Search agent
+serpapi
+
+# CrewAI (agentic framework)
+crewai
+
+# If you plan to use LLM routing with Groq LLaMA API
+groq
+
+# Optional but helpful
+astunparse
+
+
+streamlit
+crewai
+groq
+python-dotenv
+SpeechRecognition
+gTTS
+pygame
+pyaudio ; platform_system == "Windows"

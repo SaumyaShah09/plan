@@ -1,5 +1,5 @@
 streamlit
 crewai
 python-dotenv
-serpapi
+google-search-results
 pysqlite3-binary
